@@ -14,6 +14,8 @@ To install dependencies, run `npm install` from project directory.
 
 # Prepare data
 
+pip install PyPDF2 (https://pypi.org/project/PyPDF2/)
+
 Use extract_pdf_text.py to extract text data from PDF (with page breaks) and save this in /public as 'extracted_text.txt'
 
 
