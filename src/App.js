@@ -3029,7 +3029,6 @@ const categoryTree = {
   }
 };
 
-
 const getAllFormKeysFromCategoryTree = () => {
   const formFields = {};
 
@@ -3056,56 +3055,50 @@ const getAllFormKeysFromCategoryTree = () => {
   return formFields;
 };
 
+const getHighlightedText = (text, labels, forceGrey = false) => {
+  if (!text || !Array.isArray(labels)) return text;
 
-const getHighlightedText = (text, labels, neutralizeColor = false) => {
-  const labelMap = {};
+  const highlightsMap = {};
 
   labels.forEach(label => {
-    const key = `${label.highlightedText}__${label.matchIndex}`;
-    labelMap[key] = label;
-  });
+    const { highlightedText, matchIndex } = label;
+    if (!highlightedText || !matchIndex) return;
 
-  const entries = Object.keys(labelMap).map(k => {
-    const [rawText, index] = k.split('__');
-    const regex = new RegExp(rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-
+    const regex = new RegExp(highlightedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
     let match;
     let count = 0;
-    const matches = [];
 
     while ((match = regex.exec(text)) !== null) {
       count++;
-      if (count === parseInt(index, 10)) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0],
-          label: labelMap[k]
-        });
+      if (count === matchIndex) {
+        const key = `${match.index}-${match.index + highlightedText.length}`;
+        if (!highlightsMap[key]) {
+          highlightsMap[key] = {
+            start: match.index,
+            end: match.index + highlightedText.length,
+            text: match[0],
+            color: forceGrey ? '#ccc' : (highlightColors[label.primaryCategory] || '#ffa')
+          };
+        }
         break;
       }
     }
+  });
 
-    return matches[0];
-  }).filter(Boolean);
+  const highlights = Object.values(highlightsMap).sort((a, b) => a.start - b.start);
 
-  const sorted = entries.sort((a, b) => a.start - b.start);
-
+  let result = '';
   let lastIndex = 0;
-  let result = "";
 
-  for (const match of sorted) {
-    const { start, end, text: matchedText, label } = match;
-    const color = neutralizeColor ? "#ccc" : (highlightColors[label.primaryCategory] || "#ffa");
+  for (const { start, end, text: highlighted, color } of highlights) {
     result += text.slice(lastIndex, start);
-    result += `<mark style="background-color:${color};">${matchedText}</mark>`;
+    result += `<mark style="background-color:${color};">${highlighted}</mark>`;
     lastIndex = end;
   }
 
   result += text.slice(lastIndex);
   return result;
 };
-
 
 function App() {
   const [userCodeBase, setUserCodeBase] = useState("1"); 
@@ -3126,15 +3119,26 @@ function App() {
       .then((res) => res.text())
       .then((text) => {
         setPdfText(text);
-        const splitPages = text.split(/--- Page (\d+) ---/).filter((part) => part.trim() !== "");
+  
+        const splitParts = text.split(/--- Page (\d+) ---/);
         const grouped = [];
-        for (let i = 0; i < splitPages.length; i += 2) {
-          const pageNum = parseInt(splitPages[i]);
-          const content = splitPages[i + 1];
+  
+        let charCount = 0;
+        for (let i = 1; i < splitParts.length; i += 2) {
+          const pageNum = parseInt(splitParts[i], 10);
+          const content = splitParts[i + 1];
+  
           if (!isNaN(pageNum)) {
-            grouped.push({ page: pageNum, content });
+            const pageHeader = `--- Page ${pageNum} ---\n`;
+            const start = charCount;
+            const end = start + pageHeader.length + content.length;
+  
+            grouped.push({ page: pageNum, content, start, end });
+  
+            charCount = end;
           }
         }
+  
         setPages(grouped);
       })
       .catch((err) => console.error("Failed to load PDF text:", err));
@@ -3144,41 +3148,56 @@ function App() {
     const selection = window.getSelection();
     const text = selection ? selection.toString().trim() : "";
     if (!text) return;
-
-    const range = selection.getRangeAt(0);
+  
     const selectedText = text;
     const fullText = pdfText;
-
-    const selectedStart = fullText.indexOf(selectedText, range.startOffset);
-    const selectedEnd = selectedStart + selectedText.length;
-    if (selectedStart === -1) return;
-
-    let runningIndex = 0;
-    const involvedPages = [];
-    for (const page of pages) {
-      const pageStart = runningIndex;
-      const pageEnd = runningIndex + page.content.length;
-      if (selectedStart < pageEnd && selectedEnd > pageStart) {
-        involvedPages.push(page.page);
+  
+    const range = selection.getRangeAt(0);
+    const container = document.querySelector("p");
+    if (!container) return;
+  
+    const rawText = container.innerText;
+    const anchorOffset = range.startOffset;
+    const anchorNode = range.startContainer;
+  
+    let selectedStart = -1;
+    let walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let currentOffset = 0;
+  
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node === anchorNode) {
+        selectedStart = currentOffset + anchorOffset;
+        break;
       }
-      runningIndex = pageEnd;
+      currentOffset += node.textContent.length;
     }
-
-    const regex = new RegExp(selectedText.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'g');
+  
+    if (selectedStart === -1) return;
+    const selectedEnd = selectedStart + selectedText.length;
+  
+    // Detect overlapping pages
+    const involvedPages = pages
+      .filter(p => selectedStart < p.end && selectedEnd > p.start)
+      .map(p => p.page);
+  
+    // Match index
+    const regex = new RegExp(selectedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
     let match, count = 0, matchIndex = 0;
-    while ((match = regex.exec(fullText)) !== null) {
+    while ((match = regex.exec(rawText)) !== null) {
       count++;
-      if (match.index >= selectedStart) {
+      if (match.index === selectedStart) {
         matchIndex = count;
         break;
       }
     }
-
+  
     setHighlightedText(selectedText);
     setCustomFormData(prev => ({ ...prev, matchIndex }));
     setCurrentPage(involvedPages);
     setLabelOpen(true);
   };
+  
 
   const handleFormChange = (key, value) => {
     setCustomFormData((prev) => ({ ...prev, [key]: value }));
@@ -3464,8 +3483,5 @@ function App() {
   );
   
 }  
-
-
-
 
 export default App;
