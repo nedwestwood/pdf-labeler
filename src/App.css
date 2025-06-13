@@ -1,38 +1,62 @@
 .App {
-  text-align: center;
+  font-family: Georgia, serif;
+  line-height: 1.6;
+  max-width: 900px;
+  margin: auto;
+  padding: 30px;
+  background: #fdfdfd;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+#document-container {
+  background: white;
+  border: 1px solid #ddd;
+  padding: 20px;
+  min-height: 400px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.text-span {
+  display: inline;
+  padding: 1px;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+.highlighted {
+  background-color: yellow !important;
+  color: black;
+  border-radius: 2px;
 }
 
-.App-link {
-  color: #61dafb;
+.label-form {
+  position: fixed;
+  top: 100px;
+  right: 50px;
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 20px;
+  z-index: 1000;
+  max-width: 300px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.label-form input,
+.label-form textarea,
+.label-form select {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 6px;
+  font-size: 14px;
+}
+
+.page-marker {
+  display: block;
+  font-weight: bold;
+  margin: 20px 0 10px;
+  color: #666;
+  border-top: 1px solid #ccc;
+  padding-top: 8px;
+}
+
+mark.highlighted {
+  padding: 0 2px;
+  border-radius: 2px;
+  color: black; /* or auto */
 }
